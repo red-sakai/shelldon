@@ -46,6 +46,12 @@ const commands = [
         type: 5, // BOOLEAN
         required: false,
       },
+      {
+        name: 'role',
+        description: 'Role to mention in the message (use {role} token)',
+        type: 8, // ROLE
+        required: false,
+      },
     ],
     dm_permission: false,
     default_member_permissions: null, // permission checks are done at runtime

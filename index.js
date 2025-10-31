@@ -17,14 +17,18 @@ const {
 const { randomUUID } = require('crypto');
 
 // In-memory store for announcement previews
-	const previews = new Map(); // id -> { userId, channelId, msg, mentionChannelId, pingEveryone, createdAt }
+	const previews = new Map(); // id -> { userId, channelId, msg, mentionChannelId, roleId, pingEveryone, createdAt }
 
-	function renderMessage(text, mentionChannelId) {
+	function renderMessage(text, mentionChannelId, roleId) {
 		if (!text) return text;
 		let out = text;
 		if (mentionChannelId) {
 			// Replace {channel} token with a clickable channel mention
 			out = out.replaceAll('{channel}', `<#${mentionChannelId}>`);
+		}
+		if (roleId) {
+			// Replace {role} token with a role mention
+			out = out.replaceAll('{role}', `<@&${roleId}>`);
 		}
 		return out;
 	}
@@ -50,6 +54,7 @@ client.on('interactionCreate', async (interaction) => {
 			const providedMsg = interaction.options.getString('message', false);
 			const channelOption = interaction.options.getChannel('channel', true);
 			const mentionOption = interaction.options.getChannel('mention', false);
+			const roleOption = interaction.options.getRole('role', false);
 			const pingEveryone = interaction.options.getBoolean('ping_everyone', false) === true;
 
 		// Permission gate: Admin, Manage Guild, or ALLOWED_ROLE_ID
@@ -107,10 +112,12 @@ client.on('interactionCreate', async (interaction) => {
 							mentionChannelId = mentionOption.id;
 						}
 
+						const roleId = roleOption?.id ?? null;
+
 				// If no message provided, open a modal for multiline input
 						if (!providedMsg) {
 					const modal = new ModalBuilder()
-								.setCustomId(`announce-modal:${targetChannel.id}:${mentionChannelId ?? '0'}:${pingEveryone ? '1' : '0'}`)
+								.setCustomId(`announce-modal:${targetChannel.id}:${mentionChannelId ?? '0'}:${pingEveryone ? '1' : '0'}:${roleId ?? '0'}`)
 						.setTitle('Compose announcement');
 
 					const messageInput = new TextInputBuilder()
@@ -127,17 +134,18 @@ client.on('interactionCreate', async (interaction) => {
 
 										const embed = new EmbedBuilder()
 									.setTitle('📢 Announcement')
-											.setDescription(renderMessage(providedMsg, mentionChannelId))
+											.setDescription(renderMessage(providedMsg, mentionChannelId, roleId))
 									.setColor(0x5865f2)
 									.setTimestamp();
 
 						// Show preview with Confirm/Cancel buttons
 						const id = randomUUID();
-								previews.set(id, {
+									previews.set(id, {
 							userId: interaction.user.id,
 							channelId: targetChannel.id,
-									msg: renderMessage(providedMsg, mentionChannelId),
-									mentionChannelId,
+											msg: renderMessage(providedMsg, mentionChannelId, roleId),
+											mentionChannelId,
+											roleId,
 									pingEveryone,
 							createdAt: Date.now(),
 						});
@@ -185,7 +193,8 @@ client.on('interactionCreate', async (interaction) => {
 					const parts = interaction.customId.split(':');
 					const channelId = parts[1];
 					const mentionChannelId = parts[2] && parts[2] !== '0' ? parts[2] : null;
-					const pingEveryone = parts[3] === '1';
+						const pingEveryone = parts[3] === '1';
+						const roleId = parts[4] && parts[4] !== '0' ? parts[4] : null;
 				const msg = interaction.fields.getTextInputValue('announce-message').trim();
 
 				if (!msg) {
@@ -248,17 +257,18 @@ client.on('interactionCreate', async (interaction) => {
 
 										const embed = new EmbedBuilder()
 									.setTitle('📢 Announcement')
-											.setDescription(renderMessage(msg, mentionChannelId))
+											.setDescription(renderMessage(msg, mentionChannelId, roleId))
 									.setColor(0x5865f2)
 									.setTimestamp();
 
 						// Show preview with Confirm/Cancel buttons
 						const id = randomUUID();
-								previews.set(id, {
+									previews.set(id, {
 							userId: interaction.user.id,
-									channelId,
-									msg: renderMessage(msg, mentionChannelId),
-									mentionChannelId,
+											channelId,
+											msg: renderMessage(msg, mentionChannelId, roleId),
+											mentionChannelId,
+											roleId,
 									pingEveryone,
 							createdAt: Date.now(),
 						});
@@ -360,11 +370,12 @@ client.on('interactionCreate', async (interaction) => {
 									.setColor(0x5865f2)
 									.setTimestamp();
 
-										// Mentions control: only allow @everyone if explicitly requested
-										const allowedMentions = { parse: [], repliedUser: false };
-										if (payload.pingEveryone) allowedMentions.parse.push('everyone');
+											// Mentions control: only allow @everyone or selected role if explicitly requested
+											const allowedMentions = { parse: [], repliedUser: false, roles: [] };
+											if (payload.pingEveryone) allowedMentions.parse.push('everyone');
+											if (payload.roleId) allowedMentions.roles.push(payload.roleId);
 
-										await targetChannel.send({ embeds: [embed], allowedMentions });
+											await targetChannel.send({ embeds: [embed], allowedMentions });
 						previews.delete(id);
 						return interaction.update({
 							content: `Announcement sent to #${targetChannel.name}.`,
