@@ -33,6 +33,19 @@ const commands = [
         type: 3, // STRING
         required: false,
       },
+      {
+        name: 'mention',
+        description: 'Also mention/link a channel inside the message',
+        type: 7, // CHANNEL
+        required: false,
+        channel_types: [0, 5],
+      },
+      {
+        name: 'ping_everyone',
+        description: 'Allow this announcement to @everyone (requires permissions)',
+        type: 5, // BOOLEAN
+        required: false,
+      },
     ],
     dm_permission: false,
     default_member_permissions: null, // permission checks are done at runtime

@@ -16,7 +16,17 @@ const {
 const { randomUUID } = require('crypto');
 
 // In-memory store for announcement previews
-const previews = new Map(); // id -> { userId, channelId, msg, createdAt }
+	const previews = new Map(); // id -> { userId, channelId, msg, mentionChannelId, pingEveryone, createdAt }
+
+	function renderMessage(text, mentionChannelId) {
+		if (!text) return text;
+		let out = text;
+		if (mentionChannelId) {
+			// Replace {channel} token with a clickable channel mention
+			out = out.replaceAll('{channel}', `<#${mentionChannelId}>`);
+		}
+		return out;
+	}
 
 const token = process.env.TOKEN;
 if (!token) {
@@ -38,6 +48,8 @@ client.on('interactionCreate', async (interaction) => {
 		try {
 			const providedMsg = interaction.options.getString('message', false);
 			const channelOption = interaction.options.getChannel('channel', true);
+			const mentionOption = interaction.options.getChannel('mention', false);
+			const pingEveryone = interaction.options.getBoolean('ping_everyone', false) === true;
 
 		// Permission gate: Admin, Manage Guild, or ALLOWED_ROLE_ID
 		const allowedRoleId = process.env.ALLOWED_ROLE_ID;
@@ -77,12 +89,27 @@ client.on('interactionCreate', async (interaction) => {
 						ephemeral: true,
 					});
 				}
-				const targetChannel = channelOption;
+						const targetChannel = channelOption;
+
+						// Validate mention channel if provided
+						let mentionChannelId = null;
+						if (mentionOption) {
+							if (
+								mentionOption.type !== ChannelType.GuildText &&
+								mentionOption.type !== ChannelType.GuildAnnouncement
+							) {
+								return interaction.reply({
+									content: 'Please choose a Text or Announcement channel to mention.',
+									ephemeral: true,
+								});
+							}
+							mentionChannelId = mentionOption.id;
+						}
 
 				// If no message provided, open a modal for multiline input
-				if (!providedMsg) {
+						if (!providedMsg) {
 					const modal = new ModalBuilder()
-						.setCustomId(`announce-modal:${targetChannel.id}`)
+								.setCustomId(`announce-modal:${targetChannel.id}:${mentionChannelId ?? '0'}:${pingEveryone ? '1' : '0'}`)
 						.setTitle('Compose announcement');
 
 					const messageInput = new TextInputBuilder()
@@ -97,18 +124,20 @@ client.on('interactionCreate', async (interaction) => {
 					return interaction.showModal(modal);
 				}
 
-								const embed = new EmbedBuilder()
+										const embed = new EmbedBuilder()
 									.setTitle('📢 Announcement')
-									.setDescription(providedMsg)
+											.setDescription(renderMessage(providedMsg, mentionChannelId))
 									.setColor(0x5865f2)
 									.setTimestamp();
 
 						// Show preview with Confirm/Cancel buttons
 						const id = randomUUID();
-						previews.set(id, {
+								previews.set(id, {
 							userId: interaction.user.id,
 							channelId: targetChannel.id,
-							msg: providedMsg,
+									msg: renderMessage(providedMsg, mentionChannelId),
+									mentionChannelId,
+									pingEveryone,
 							createdAt: Date.now(),
 						});
 
@@ -146,13 +175,16 @@ client.on('interactionCreate', async (interaction) => {
 		}
 
 		// Handle modal submit for multiline announcement
-		if (
+			if (
 			interaction.isModalSubmit() &&
 			typeof interaction.customId === 'string' &&
 			interaction.customId.startsWith('announce-modal:')
 		) {
 			try {
-				const channelId = interaction.customId.split(':')[1];
+					const parts = interaction.customId.split(':');
+					const channelId = parts[1];
+					const mentionChannelId = parts[2] && parts[2] !== '0' ? parts[2] : null;
+					const pingEveryone = parts[3] === '1';
 				const msg = interaction.fields.getTextInputValue('announce-message').trim();
 
 				if (!msg) {
@@ -213,18 +245,20 @@ client.on('interactionCreate', async (interaction) => {
 					});
 				}
 
-								const embed = new EmbedBuilder()
+										const embed = new EmbedBuilder()
 									.setTitle('📢 Announcement')
-									.setDescription(msg)
+											.setDescription(renderMessage(msg, mentionChannelId))
 									.setColor(0x5865f2)
 									.setTimestamp();
 
 						// Show preview with Confirm/Cancel buttons
 						const id = randomUUID();
-						previews.set(id, {
+								previews.set(id, {
 							userId: interaction.user.id,
-							channelId,
-							msg,
+									channelId,
+									msg: renderMessage(msg, mentionChannelId),
+									mentionChannelId,
+									pingEveryone,
 							createdAt: Date.now(),
 						});
 
@@ -319,13 +353,17 @@ client.on('interactionCreate', async (interaction) => {
 							});
 						}
 
-								const embed = new EmbedBuilder()
+										const embed = new EmbedBuilder()
 									.setTitle('📢 Announcement')
 									.setDescription(payload.msg)
 									.setColor(0x5865f2)
 									.setTimestamp();
 
-						await targetChannel.send({ embeds: [embed] });
+										// Mentions control: only allow @everyone if explicitly requested
+										const allowedMentions = { parse: [], repliedUser: false };
+										if (payload.pingEveryone) allowedMentions.parse.push('everyone');
+
+										await targetChannel.send({ embeds: [embed], allowedMentions });
 						previews.delete(id);
 						return interaction.update({
 							content: `Announcement sent to #${targetChannel.name}.`,
