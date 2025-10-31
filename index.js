@@ -1,4 +1,5 @@
 require('dotenv').config();
+const http = require('http');
 
 const {
 	Client,
@@ -388,4 +389,16 @@ client.on('interactionCreate', async (interaction) => {
 	});
 
 client.login(token);
+
+// Optional: start a tiny HTTP server when PORT is provided (e.g., Render Web Service)
+const port = process.env.PORT;
+if (port) {
+	const server = http.createServer((req, res) => {
+		res.writeHead(200, { 'Content-Type': 'text/plain' });
+		res.end('OK');
+	});
+	server.listen(port, () => {
+		console.log(`Health server listening on :${port}`);
+	});
+}
 
