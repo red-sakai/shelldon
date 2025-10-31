@@ -21,17 +21,17 @@ const commands = [
     type: 1, // CHAT_INPUT
     options: [
       {
-        name: 'message',
-        description: 'The announcement text',
-        type: 3, // STRING
-        required: true,
-      },
-      {
         name: 'channel',
         description: 'Channel to post the announcement in',
         type: 7, // CHANNEL
         required: true,
         channel_types: [0, 5], // GUILD_TEXT, GUILD_ANNOUNCEMENT
+      },
+      {
+        name: 'message',
+        description: 'The announcement text (optional; a modal will open if omitted)',
+        type: 3, // STRING
+        required: false,
       },
     ],
     dm_permission: false,
