@@ -10,7 +10,13 @@ const {
 	TextInputBuilder,
 	TextInputStyle,
 	ActionRowBuilder,
+	ButtonBuilder,
+	ButtonStyle,
 } = require('discord.js');
+const { randomUUID } = require('crypto');
+
+// In-memory store for announcement previews
+const previews = new Map(); // id -> { userId, channelId, msg, createdAt }
 
 const token = process.env.TOKEN;
 if (!token) {
@@ -27,7 +33,7 @@ client.once('ready', (c) => {
 });
 
 client.on('interactionCreate', async (interaction) => {
-	// Handle slash command
+		// Handle slash command
 	if (interaction.isChatInputCommand() && interaction.commandName === 'announce') {
 		try {
 			const providedMsg = interaction.options.getString('message', false);
@@ -91,18 +97,39 @@ client.on('interactionCreate', async (interaction) => {
 					return interaction.showModal(modal);
 				}
 
-				const embed = new EmbedBuilder()
-					.setTitle('📢 Announcement')
-					.setDescription(providedMsg)
-					.setColor(0x5865f2)
-					.setTimestamp()
-					.setFooter({ text: `From ${interaction.user.tag}` });
+						const embed = new EmbedBuilder()
+							.setTitle('📢 Announcement')
+							.setDescription(providedMsg)
+							.setColor(0x5865f2)
+							.setTimestamp()
+							.setFooter({ text: `From ${interaction.user.tag}` });
 
-				await targetChannel.send({ embeds: [embed] });
-				return interaction.reply({
-					content: `Announcement sent to #${targetChannel.name}.`,
-					ephemeral: true,
-				});
+						// Show preview with Confirm/Cancel buttons
+						const id = randomUUID();
+						previews.set(id, {
+							userId: interaction.user.id,
+							channelId: targetChannel.id,
+							msg: providedMsg,
+							createdAt: Date.now(),
+						});
+
+						const row = new ActionRowBuilder().addComponents(
+							new ButtonBuilder()
+								.setCustomId(`announce-confirm:${id}`)
+								.setLabel('Send')
+								.setStyle(ButtonStyle.Success),
+							new ButtonBuilder()
+								.setCustomId(`announce-cancel:${id}`)
+								.setLabel('Cancel')
+								.setStyle(ButtonStyle.Secondary)
+						);
+
+						return interaction.reply({
+							content: `Preview — will send to #${targetChannel.name}.`,
+							embeds: [embed],
+							components: [row],
+							ephemeral: true,
+						});
 			} catch (err) {
 				console.error('Error handling /announce:', err);
 				if (interaction.deferred || interaction.replied) {
@@ -187,18 +214,39 @@ client.on('interactionCreate', async (interaction) => {
 					});
 				}
 
-				const embed = new EmbedBuilder()
-					.setTitle('📢 Announcement')
-					.setDescription(msg)
-					.setColor(0x5865f2)
-					.setTimestamp()
-					.setFooter({ text: `From ${interaction.user.tag}` });
+						const embed = new EmbedBuilder()
+							.setTitle('📢 Announcement')
+							.setDescription(msg)
+							.setColor(0x5865f2)
+							.setTimestamp()
+							.setFooter({ text: `From ${interaction.user.tag}` });
 
-				await targetChannel.send({ embeds: [embed] });
-				return interaction.reply({
-					content: `Announcement sent to #${targetChannel.name}.`,
-					ephemeral: true,
-				});
+						// Show preview with Confirm/Cancel buttons
+						const id = randomUUID();
+						previews.set(id, {
+							userId: interaction.user.id,
+							channelId,
+							msg,
+							createdAt: Date.now(),
+						});
+
+						const row = new ActionRowBuilder().addComponents(
+							new ButtonBuilder()
+								.setCustomId(`announce-confirm:${id}`)
+								.setLabel('Send')
+								.setStyle(ButtonStyle.Success),
+							new ButtonBuilder()
+								.setCustomId(`announce-cancel:${id}`)
+								.setLabel('Cancel')
+								.setStyle(ButtonStyle.Secondary)
+						);
+
+						return interaction.reply({
+							content: 'Preview — will send to the selected channel.',
+							embeds: [embed],
+							components: [row],
+							ephemeral: true,
+						});
 			} catch (err) {
 				console.error('Error handling announce modal:', err);
 				if (interaction.deferred || interaction.replied) {
@@ -214,6 +262,94 @@ client.on('interactionCreate', async (interaction) => {
 				}
 			}
 		}
+
+				// Handle preview confirmation/cancellation
+				if (interaction.isButton()) {
+					try {
+						const id = interaction.customId.split(':')[1];
+						if (!id) return;
+						const payload = previews.get(id);
+						if (!payload) {
+							return interaction.update({
+								content: 'This preview has expired. Please run /announce again.',
+								embeds: [],
+								components: [],
+							});
+						}
+						if (payload.userId !== interaction.user.id) {
+							return interaction.reply({
+								content: 'This preview is not yours.',
+								ephemeral: true,
+							});
+						}
+
+						const isConfirm = interaction.customId.startsWith('announce-confirm:');
+						const isCancel = interaction.customId.startsWith('announce-cancel:');
+
+						if (!isConfirm && !isCancel) return;
+
+						if (isCancel) {
+							previews.delete(id);
+							return interaction.update({
+								content: 'Announcement cancelled.',
+								embeds: [],
+								components: [],
+							});
+						}
+
+						// Confirmed — send the message
+						let targetChannel = null;
+						try {
+							targetChannel = await interaction.guild.channels.fetch(payload.channelId);
+						} catch (_) {
+							try {
+								targetChannel = await interaction.client.channels.fetch(payload.channelId);
+							} catch (e) {
+								console.error('Failed to fetch channel during confirm:', e);
+							}
+						}
+						if (
+							!targetChannel ||
+							(targetChannel.type !== ChannelType.GuildText &&
+								targetChannel.type !== ChannelType.GuildAnnouncement)
+						) {
+							previews.delete(id);
+							return interaction.update({
+								content: 'Could not send: target channel unavailable or invalid.',
+								embeds: [],
+								components: [],
+							});
+						}
+
+						const embed = new EmbedBuilder()
+							.setTitle('📢 Announcement')
+							.setDescription(payload.msg)
+							.setColor(0x5865f2)
+							.setTimestamp()
+							.setFooter({ text: `From ${interaction.user.tag}` });
+
+						await targetChannel.send({ embeds: [embed] });
+						previews.delete(id);
+						return interaction.update({
+							content: `Announcement sent to #${targetChannel.name}.`,
+							embeds: [],
+							components: [],
+						});
+					} catch (err) {
+						console.error('Error handling preview button:', err);
+						if (interaction.deferred || interaction.replied) {
+							await interaction.followUp({
+								content: 'There was an error handling your action.',
+								ephemeral: true,
+							});
+						} else {
+							await interaction.reply({
+								content: 'There was an error handling your action.',
+								ephemeral: true,
+							});
+						}
+					}
+				}
 	});
 
 client.login(token);
