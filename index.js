@@ -97,12 +97,11 @@ client.on('interactionCreate', async (interaction) => {
 					return interaction.showModal(modal);
 				}
 
-						const embed = new EmbedBuilder()
-							.setTitle('📢 Announcement')
-							.setDescription(providedMsg)
-							.setColor(0x5865f2)
-							.setTimestamp()
-							.setFooter({ text: `From ${interaction.user.tag}` });
+								const embed = new EmbedBuilder()
+									.setTitle('📢 Announcement')
+									.setDescription(providedMsg)
+									.setColor(0x5865f2)
+									.setTimestamp();
 
 						// Show preview with Confirm/Cancel buttons
 						const id = randomUUID();
@@ -214,12 +213,11 @@ client.on('interactionCreate', async (interaction) => {
 					});
 				}
 
-						const embed = new EmbedBuilder()
-							.setTitle('📢 Announcement')
-							.setDescription(msg)
-							.setColor(0x5865f2)
-							.setTimestamp()
-							.setFooter({ text: `From ${interaction.user.tag}` });
+								const embed = new EmbedBuilder()
+									.setTitle('📢 Announcement')
+									.setDescription(msg)
+									.setColor(0x5865f2)
+									.setTimestamp();
 
 						// Show preview with Confirm/Cancel buttons
 						const id = randomUUID();
@@ -321,12 +319,11 @@ client.on('interactionCreate', async (interaction) => {
 							});
 						}
 
-						const embed = new EmbedBuilder()
-							.setTitle('📢 Announcement')
-							.setDescription(payload.msg)
-							.setColor(0x5865f2)
-							.setTimestamp()
-							.setFooter({ text: `From ${interaction.user.tag}` });
+								const embed = new EmbedBuilder()
+									.setTitle('📢 Announcement')
+									.setDescription(payload.msg)
+									.setColor(0x5865f2)
+									.setTimestamp();
 
 						await targetChannel.send({ embeds: [embed] });
 						previews.delete(id);
