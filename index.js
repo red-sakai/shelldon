@@ -35,6 +35,7 @@ const { randomUUID } = require('crypto');
 	}
 
 const token = process.env.TOKEN;
+const disableBot = process.env.DISABLE_BOT === 'true';
 if (!token) {
 	console.error('Missing TOKEN in environment. Create a .env file with TOKEN=your_bot_token');
 	process.exit(1);
@@ -405,7 +406,11 @@ client.on('interactionCreate', async (interaction) => {
 				}
 	});
 
-client.login(token);
+if (disableBot) {
+	console.log('DISABLE_BOT=true: skipping Discord login');
+} else {
+	client.login(token);
+}
 
 // Optional: start a tiny HTTP server when PORT is provided (e.g., Render Web Service)
 const port = process.env.PORT;

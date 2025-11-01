@@ -17,3 +17,23 @@ services:
         sync: false
       - key: ALLOWED_ROLE_ID
         sync: false
+  - type: web
+    name: shelldon-bot-web
+    runtime: node
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    autoDeploy: false
+    envVars:
+      - key: DISABLE_BOT
+        value: "true"
+      - key: TOKEN
+        sync: false
+      - key: CLIENT_ID
+        sync: false
+      - key: GUILD_ID
+        sync: false
+      - key: ANNOUNCE_CHANNEL_ID
+        sync: false
+      - key: ALLOWED_ROLE_ID
+        sync: false
