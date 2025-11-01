@@ -13,6 +13,7 @@ const {
 	ActionRowBuilder,
 	ButtonBuilder,
 	ButtonStyle,
+  ActivityType,
 } = require('discord.js');
 const { randomUUID } = require('crypto');
 
@@ -45,6 +46,11 @@ const client = new Client({
 
 client.once('ready', (c) => {
 	console.log(`Logged in as ${c.user.tag}`);
+	// Set presence to "Listening to /announce"
+	c.user.setPresence({
+		activities: [{ name: '/announce', type: ActivityType.Listening }],
+		status: 'online',
+	});
 });
 
 client.on('interactionCreate', async (interaction) => {

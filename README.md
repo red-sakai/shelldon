@@ -1,12 +1,15 @@
 # Shelldon – Simple Discord Announcement Bot
 
-A minimal Discord bot that posts announcements to a channel via a slash command.
+A minimal Discord bot that posts announcements to a channel via a slash command. It also supports optional Facebook Page monitoring to post updates in your tech news channel.
 
 ## What it does
 
 - Registers a `/announce` command in your server (guild)
+- Multi-line compose via modal with preview + Confirm/Cancel
+- Safe mentions: optional channel, role, and @everyone with explicit toggles
 - Only users with Administrator, Manage Server, or an optional allowed role can use it
 - Sends the message either to a provided channel option or a default channel from `.env`
+- Optional: monitors a Facebook Page and posts new updates to a channel
 
 ## Prerequisites
 
@@ -51,6 +54,11 @@ npm start
 - `GUILD_ID`: The guild (server) ID where you want `/announce` registered
 - `ANNOUNCE_CHANNEL_ID` (optional): Default channel for announcements if the command's channel option is omitted
 - `ALLOWED_ROLE_ID` (optional): A role that is allowed to use `/announce` (in addition to Admin/Manage Server)
+- Facebook watcher (optional):
+  - `TECH_NEWS_CHANNEL_ID`: Channel to post Facebook updates (e.g., your `#tech-news`)
+  - `FB_PAGE_ID`: Facebook Page ID/username to monitor
+  - `FB_ACCESS_TOKEN`: Page access token with `pages_read_engagement`
+  - `FB_POLL_INTERVAL_SEC`: Poll interval in seconds (default 300, min 60)
 
 ## Using the command
 
@@ -60,6 +68,17 @@ npm start
 
 Example:
 - `/announce message:"Game night this Friday at 7 PM!" channel:#announcements`
+
+## Using Facebook Page watcher (optional)
+
+1) Create a Facebook App and obtain a Page access token with `pages_read_engagement`.
+2) Set `FB_PAGE_ID`, `FB_ACCESS_TOKEN`, and `TECH_NEWS_CHANNEL_ID` in `.env`.
+3) Restart the bot. On startup, it will poll every few minutes and post new items to your channel.
+
+Notes:
+- First run initializes the last seen post and does not backfill to avoid spam.
+- It posts a link + embed for each new post (message text if available; otherwise just the link).
+- If you deploy as a Web Service (e.g., Render), the bot exposes an `OK` health endpoint when `PORT` is set.
 
 ## Notes
 
