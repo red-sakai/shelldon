@@ -35,7 +35,7 @@ npm install
 npm install dotenv
 ```
 
-3) Register the slash command for your guild (server):
+3) Register the slash command for your guild(s):
 
 ```powershell
 npm run register
@@ -51,7 +51,8 @@ npm start
 
 - `TOKEN`: Your bot token
 - `CLIENT_ID`: Your application (bot) client ID
-- `GUILD_ID`: The guild (server) ID where you want `/announce` registered
+- `GUILD_ID`: A single guild (server) ID where you want `/announce` registered
+- `GUILD_IDS`: (Optional) Multiple guild IDs (comma or space separated) to register the command in several servers at once. If `GUILD_IDS` is set it overrides `GUILD_ID`.
 - `ANNOUNCE_CHANNEL_ID` (optional): Default channel for announcements if the command's channel option is omitted
 - `ALLOWED_ROLE_ID` (optional): A role that is allowed to use `/announce` (in addition to Admin/Manage Server)
 - Facebook watcher (optional):

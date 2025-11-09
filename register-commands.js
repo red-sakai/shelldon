@@ -4,11 +4,34 @@ const { REST, Routes } = require('discord.js');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID; // Your application (bot) client ID
-const guildId = process.env.GUILD_ID; // Target guild to register the command
+const guildId = process.env.GUILD_ID; // Single target guild (back-compat)
+const guildIdsRaw = process.env.GUILD_IDS; // Comma/space separated list of guild IDs
 
-if (!token || !clientId || !guildId) {
+if (!token || !clientId) {
   console.error(
-    'Missing TOKEN, CLIENT_ID, or GUILD_ID in environment. Create a .env file (see .env.example).'
+    'Missing TOKEN or CLIENT_ID in environment. Create a .env file (see .env.example).'
+  );
+  process.exit(1);
+}
+
+function parseIdList(str) {
+  return str
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// Determine which guilds to register commands in
+let guildIds = [];
+if (guildIdsRaw && guildIdsRaw.trim()) {
+  guildIds = parseIdList(guildIdsRaw);
+} else if (guildId && guildId.trim()) {
+  guildIds = [guildId.trim()];
+}
+
+if (guildIds.length === 0) {
+  console.error(
+    'No guild(s) provided. Set GUILD_ID for a single guild or GUILD_IDS for multiple (comma or space separated).'
   );
   process.exit(1);
 }
@@ -61,14 +84,18 @@ const commands = [
 (async () => {
   try {
     const rest = new REST({ version: '10' }).setToken(token);
-
     console.log('Registering application (guild) commands...');
 
-    await rest.put(Routes.applicationGuildCommands(clientId, guildId), {
-      body: commands,
-    });
-
-    console.log('Successfully registered commands for guild', guildId);
+    for (const gId of guildIds) {
+      try {
+        await rest.put(Routes.applicationGuildCommands(clientId, gId), {
+          body: commands,
+        });
+        console.log('✓ Successfully registered commands for guild', gId);
+      } catch (err) {
+        console.error('✗ Failed to register commands for guild', gId, err);
+      }
+    }
   } catch (error) {
     console.error('Failed to register commands:', error);
     process.exit(1);
